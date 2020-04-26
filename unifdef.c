@@ -162,6 +162,7 @@ static bool             lnnum;			/* -n: add #line directives */
 static bool             symlist;		/* -s: output symbol list */
 static bool             symdepth;		/* -S: output symbol depth */
 static bool             text;			/* -t: this is a text file */
+static bool             warneof;		/* -w: warn on EOF comment, don't error */
 
 static const char      *symname[MAXSYMS];	/* symbol name */
 static const char      *value[MAXSYMS];		/* -Dsym=value */
@@ -256,7 +257,7 @@ main(int argc, char *argv[])
 {
 	int opt;
 
-	while ((opt = getopt(argc, argv, "i:D:U:f:I:M:o:x:bBcdehKklmnsStV")) != -1)
+	while ((opt = getopt(argc, argv, "i:D:U:f:I:M:o:x:bBcdehKklmnsStVw")) != -1)
 		switch (opt) {
 		case 'i': /* treat stuff controlled by these symbols as text */
 			/*
@@ -333,6 +334,9 @@ main(int argc, char *argv[])
 			break;
 		case 'V':
 			version();
+			break;
+		case 'w':
+			warneof = true;
 			break;
 		case 'x':
 			exitmode = atoi(optarg);
@@ -502,6 +506,7 @@ help(void)
 	    "	-s	list #if control symbols\n"
 	    "	-t	ignore C strings and comments\n"
 	    "	-V	print version\n"
+	    "	-w	warn on premature EOF instead of error\n"
 	    "	-x{012}	exit status mode\n"
 	);
 	exit(0);
@@ -679,8 +684,12 @@ state(Ifstate is)
 static void
 done(void)
 {
-	if (incomment)
-		error("EOF in comment");
+	if (incomment) {
+		if (warneof)
+			warnx("%s: %d: %s", filename, linenum, "EOF in comment");
+		else
+			error("EOF in comment");
+	}
 	closeio();
 }
 
