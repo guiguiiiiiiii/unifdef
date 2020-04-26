@@ -176,6 +176,7 @@ static const char      *linefile;		/* file name for #line */
 static FILE            *output;			/* output file pointer */
 static const char      *ofilename;		/* output file name */
 static const char      *backext;		/* backup extension */
+static const char      *pattern;		/* fill pattern for deleted lines */
 static char            *tempname;		/* avoid splatting input */
 
 static char             tline[MAXLINE+EDITSLOP];/* input buffer plus space */
@@ -257,7 +258,7 @@ main(int argc, char *argv[])
 {
 	int opt;
 
-	while ((opt = getopt(argc, argv, "i:D:U:f:I:M:o:x:bBcdehKklmnsStVw")) != -1)
+	while ((opt = getopt(argc, argv, "i:D:U:f:F:I:M:o:x:bBcdehKklmnsStVw")) != -1)
 		switch (opt) {
 		case 'i': /* treat stuff controlled by these symbols as text */
 			/*
@@ -299,6 +300,9 @@ main(int argc, char *argv[])
 			break;
 		case 'f': /* definitions file */
 			defundefile(optarg);
+			break;
+		case 'F': /* fill deleted lines with this pattern */
+			pattern = optarg;
 			break;
 		case 'h':
 			help();
@@ -350,6 +354,8 @@ main(int argc, char *argv[])
 	argv += optind;
 	if (compblank && lnblank)
 		errx(2, "-B and -b are mutually exclusive");
+	if (pattern && !lnblank)
+		errx(2, "-F require -b");
 	if (symlist && (ofilename != NULL || inplace || argc > 1))
 		errx(2, "-s only works with one input file");
 	if (argc > 1 && ofilename != NULL)
@@ -716,8 +722,12 @@ flushline(bool keep)
 			blankmax = blankcount = blankline ? blankcount + 1 : 0;
 		}
 	} else {
-		if (lnblank && fputs(newline, output) == EOF)
-			closeio();
+		if (lnblank) {
+			if (pattern && fputs(pattern, output) == EOF)
+				closeio();
+			if (fputs(newline, output) == EOF)
+				closeio();
+		}
 		altered = true;
 		delcount += 1;
 		blankcount = 0;
